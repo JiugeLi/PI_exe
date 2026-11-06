@@ -1,0 +1,62 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const runtime = path.dirname(fileURLToPath(import.meta.url));
+const state = process.env.PI_PORTABLE_STATE;
+if (!state || !path.isAbsolute(state)) throw new Error('Launch through the Pi Portable executable.');
+const agent = path.join(state, 'agent');
+const provision = path.join(runtime, 'provision');
+fs.mkdirSync(agent, { recursive: true, mode: 0o700 });
+
+function seed(source, target) {
+  if (fs.statSync(source).isDirectory()) {
+    fs.mkdirSync(target, { recursive: true, mode: 0o700 });
+    for (const item of fs.readdirSync(source)) seed(path.join(source, item), path.join(target, item));
+  } else {
+    try { fs.copyFileSync(source, target, fs.constants.COPYFILE_EXCL); fs.chmodSync(target, 0o600); }
+    catch (error) { if (error.code !== 'EEXIST') throw error; }
+  }
+}
+seed(provision, agent);
+
+const localBin = path.join(agent, 'bin');
+fs.mkdirSync(localBin, { recursive: true, mode: 0o700 });
+for (const item of fs.readdirSync(path.join(runtime, 'tools'))) {
+  const target = path.join(localBin, item);
+  fs.copyFileSync(path.join(runtime, 'tools', item), target);
+  fs.chmodSync(target, 0o700);
+}
+
+process.env.PI_CODING_AGENT_DIR = agent;
+process.env.PI_PACKAGE_DIR = path.join(runtime, 'pi');
+process.env.PI_SKIP_VERSION_CHECK = '1';
+process.env.NODE_DISABLE_COMPILE_CACHE = '1';
+process.env.NODE_COMPILE_CACHE = path.join(state, 'cache', 'node');
+process.env.TEMP = process.env.TMP = process.env.TMPDIR = path.join(state, 'tmp');
+fs.mkdirSync(process.env.TMPDIR, { recursive: true, mode: 0o700 });
+// Isolate Pi's own data; retain HOME/USERPROFILE so the original tools keep
+// full access to the server's SSH keys, Git configuration and installed tools.
+const pathKey = Object.keys(process.env).find(k => k.toLowerCase() === 'path') ?? 'PATH';
+process.env[pathKey] = [path.join(runtime, 'node'), path.join(runtime, 'node', 'bin'), localBin,
+  ...(process.platform === 'win32' ? [path.join(runtime, 'bash', 'usr', 'bin')] : []),
+  process.env[pathKey] ?? ''].join(path.delimiter);
+
+const settingsFile = path.join(agent, 'settings.json');
+const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+if (process.platform === 'win32') settings.shellPath = path.join(runtime, 'bash', 'usr', 'bin', 'bash.exe');
+else delete settings.shellPath;
+fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
+
+const args = process.argv.slice(2);
+if (args[0] === '--portable-diagnostics') {
+  console.log(JSON.stringify({ platform: process.platform, arch: process.arch,
+    cwd: process.cwd(), agentDir: agent, runtime, node: process.version,
+    pi: JSON.parse(fs.readFileSync(path.join(runtime, 'pi', 'package.json'), 'utf8')).version,
+    provider: settings.defaultProvider, model: settings.defaultModel,
+    shell: settings.shellPath ?? '/bin/bash', fullPermissions: true }, null, 2));
+} else {
+  const cli = path.join(runtime, 'pi', 'dist', 'bundle', 'cli.js');
+  process.argv = [process.execPath, cli, ...args];
+  await import(cli);
+}

@@ -1,0 +1,11 @@
+.build/
+.tools/
+dist/
+.pi-portable/
+**/.pi-portable/
+__pycache__/
+*.pyc
+.env
+.env.*
+private/
+payload.zip
