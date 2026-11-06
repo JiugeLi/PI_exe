@@ -1,6 +1,7 @@
 # Pi Portable
 
-- Personal project; GitHub remote is `JiugeLi/PI_exe`. Switch `gh` to `JiugeLi` before remote operations.
+- Personal project with a public GitHub repository at `JiugeLi/PI_exe`. Switch `gh` to `JiugeLi` before remote operations.
+- Push the version tag first, then publish with `gh release create --verify-tag`; this avoids auto-tag creation permission failures. Verify published asset sizes/digests and anonymous download access.
 - Ship the original Pi CLI with its dependencies and a bundled Node runtime. Do not substitute a reimplemented agent or silently download runtimes at launch.
 - Windows and Linux x86_64 are separate builds. Linux Node requires glibc; do not claim Alpine/musl compatibility.
 - Use the launch working directory, never change to the executable directory. Pi data and extracted runtime live in `<cwd>/.pi-portable`; use `PI_CODING_AGENT_DIR` to avoid changing `~/.pi/agent`.
