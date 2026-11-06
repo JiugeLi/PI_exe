@@ -1,4 +1,4 @@
-# Pi Portable
+# Pi Agent Portable
 
 [中文说明](README.zh-CN.md) · [English guide](README.en.md)
 
@@ -8,9 +8,9 @@ SoloMux is included as a native API-key provider. Run `/login solomux`, enter yo
 
 ## Download
 
-- [Windows x86_64](https://github.com/JiugeLi/PI_exe/releases/latest/download/pi-windows-x64.exe)
-- [Linux x86_64](https://github.com/JiugeLi/PI_exe/releases/latest/download/pi-linux-x64)
-- [All releases and checksums](https://github.com/JiugeLi/PI_exe/releases)
+- [Windows x86_64](https://github.com/JiugeLi/Pi-Agent-Portable/releases/latest/download/pi-windows-x64.exe)
+- [Linux x86_64](https://github.com/JiugeLi/Pi-Agent-Portable/releases/latest/download/pi-linux-x64)
+- [All releases and checksums](https://github.com/JiugeLi/Pi-Agent-Portable/releases)
 
 Linux:
 

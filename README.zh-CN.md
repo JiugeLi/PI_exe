@@ -1,8 +1,8 @@
-# Pi Portable
+# Pi Agent Portable
 
 自带运行环境的原版 Pi 命令行代理。Windows 和 Linux x86_64 分别提供一个可执行文件，不需要额外安装 Node.js 或 Pi。
 
-下载：[Windows](https://github.com/JiugeLi/PI_exe/releases/latest/download/pi-windows-x64.exe) · [Linux](https://github.com/JiugeLi/PI_exe/releases/latest/download/pi-linux-x64) · [版本与校验值](https://github.com/JiugeLi/PI_exe/releases)
+下载：[Windows](https://github.com/JiugeLi/Pi-Agent-Portable/releases/latest/download/pi-windows-x64.exe) · [Linux](https://github.com/JiugeLi/Pi-Agent-Portable/releases/latest/download/pi-linux-x64) · [版本与校验值](https://github.com/JiugeLi/Pi-Agent-Portable/releases)
 
 ## 快速开始
 

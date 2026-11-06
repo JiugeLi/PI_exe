@@ -1,8 +1,8 @@
-# Pi Portable
+# Pi Agent Portable
 
 The original Pi coding agent with a bundled runtime. Separate executables are provided for Windows and Linux x86_64. No additional Node.js or Pi installation is required.
 
-Download: [Windows](https://github.com/JiugeLi/PI_exe/releases/latest/download/pi-windows-x64.exe) · [Linux](https://github.com/JiugeLi/PI_exe/releases/latest/download/pi-linux-x64) · [Releases and checksums](https://github.com/JiugeLi/PI_exe/releases)
+Download: [Windows](https://github.com/JiugeLi/Pi-Agent-Portable/releases/latest/download/pi-windows-x64.exe) · [Linux](https://github.com/JiugeLi/Pi-Agent-Portable/releases/latest/download/pi-linux-x64) · [Releases and checksums](https://github.com/JiugeLi/Pi-Agent-Portable/releases)
 
 ## Quick start
 

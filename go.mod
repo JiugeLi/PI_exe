@@ -1,3 +1,3 @@
-module github.com/JiugeLi/PI_exe
+module github.com/JiugeLi/Pi-Agent-Portable
 
 go 1.23
