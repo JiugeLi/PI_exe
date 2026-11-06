@@ -14,14 +14,15 @@ for key in ('PI_CODING_AGENT_DIR', 'PI_PACKAGE_DIR', 'NODE_PATH', 'NODE_OPTIONS'
 
 
 def run(args, timeout=180):
-    result = subprocess.run([str(EXE), *args], cwd=WORK, env=env, capture_output=True,
+    result = subprocess.run([str(EXE), *args], cwd=WORK, env=env, stdin=subprocess.DEVNULL, capture_output=True,
                             text=True, encoding='utf-8', errors='replace', timeout=timeout)
     if result.returncode:
         raise RuntimeError(f'Portable command failed: {args[0]}, exit {result.returncode}; stdout length {len(result.stdout)}, stderr length {len(result.stderr)}')
     return result
 
 
-print('Checking Linux cold startup and original CLI...', flush=True)
+print('Checking Linux launch and original CLI...', flush=True)
+known_runtimes = {p.parent.resolve() for p in (WORK / '.pi-portable/runtime').glob('*/.complete')}
 started = time.monotonic()
 info = json.loads(run(['--portable-diagnostics']).stdout)
 assert info['platform'] == 'linux' and info['arch'] == 'x64'
@@ -63,7 +64,8 @@ assert set(('read', 'write', 'edit', 'bash')) <= set(events)
 report = {'platform': 'linux-x64', 'pi': info['pi'], 'node': info['node'],
           'system': subprocess.check_output(['uname', '-sm'], text=True).strip(),
           'libc': subprocess.check_output(['getconf', 'GNU_LIBC_VERSION'], text=True).strip(),
-          'coldSeconds': cold_seconds, 'warmSeconds': warm_seconds,
+          'firstDiagnosticSeconds': cold_seconds, 'warmDiagnosticSeconds': warm_seconds,
+          'runtimeExtractedThisRun': Path(info['runtime']).resolve() not in known_runtimes,
           'originalToolsExecuted': sorted(set(events)), 'realSoloApiReply': True,
           'unicodeAndSpacesInCwd': True, 'bundledNodeNpmRgFd': True,
           'nodeAndPiNotRequiredOnSystemPath': True}

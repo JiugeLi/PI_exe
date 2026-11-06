@@ -10,3 +10,4 @@
 - Verify cold extraction, repeat launch, original version/help, cached model discovery, real model reply and actual file/shell tools. Label Windows and Linux verification separately.
 - Launch the upstream CLI as a separate Node entrypoint to preserve its loader behavior. Windows dynamic imports, if needed elsewhere, require `pathToFileURL`.
 - Seed cached rg/fd binaries with exclusive creation; do not overwrite them each launch, since Windows locks executables used by concurrent sessions.
+- Noninteractive CLI tests over SSH must set stdin to `DEVNULL` (or redirect `</dev/null`): Pi reads piped stdin until EOF before starting a prompt. An open SSH stdin can look like a hung model request.

@@ -20,7 +20,7 @@ for key in ('PI_CODING_AGENT_DIR', 'PI_PACKAGE_DIR', 'NODE_PATH', 'NODE_OPTIONS'
 
 
 def run(args, timeout=180):
-    result = subprocess.run([str(EXE), *args], cwd=WORK, env=env, capture_output=True,
+    result = subprocess.run([str(EXE), *args], cwd=WORK, env=env, stdin=subprocess.DEVNULL, capture_output=True,
                             text=True, encoding='utf-8', errors='replace', timeout=timeout)
     if result.returncode:
         # Do not dump arbitrary provider errors or configuration into logs.
@@ -28,7 +28,8 @@ def run(args, timeout=180):
     return result
 
 
-print('Checking cold startup and original CLI...', flush=True)
+print('Checking launch and original CLI...', flush=True)
+known_runtimes = {p.parent.resolve() for p in (WORK / '.pi-portable/runtime').glob('*/.complete')}
 started = time.monotonic()
 cold = run(['--portable-diagnostics'])
 info = json.loads(cold.stdout)
@@ -76,7 +77,8 @@ for line in reply.stdout.splitlines():
 assert set(('read', 'write', 'edit', 'bash')) <= set(events), 'Not all original tools executed'
 assert BEFORE == {name: hashlib.sha256((ORIGINAL / name).read_bytes()).hexdigest() for name in BEFORE}
 report = {'platform': 'windows-x64', 'pi': info['pi'], 'node': info['node'],
-          'coldSeconds': first_seconds, 'warmSeconds': warm_seconds,
+          'firstDiagnosticSeconds': first_seconds, 'warmDiagnosticSeconds': warm_seconds,
+          'runtimeExtractedThisRun': Path(info['runtime']).resolve() not in known_runtimes,
           'globalNodePiGitRemovedFromPath': True, 'unicodeAndSpacesInCwd': True,
           'originalProfileUnchanged': True, 'realSoloApiReply': True,
           'originalToolsExecuted': sorted(set(events)), 'bundledBashNodeNpmRgFd': True}
