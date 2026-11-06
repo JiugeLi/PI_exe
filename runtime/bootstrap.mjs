@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
 
 const runtime = path.dirname(fileURLToPath(import.meta.url));
 const state = process.env.PI_PORTABLE_STATE;
@@ -24,8 +25,11 @@ const localBin = path.join(agent, 'bin');
 fs.mkdirSync(localBin, { recursive: true, mode: 0o700 });
 for (const item of fs.readdirSync(path.join(runtime, 'tools'))) {
   const target = path.join(localBin, item);
-  fs.copyFileSync(path.join(runtime, 'tools', item), target);
-  fs.chmodSync(target, 0o700);
+  // Concurrent sessions can already be executing rg/fd (Windows locks EXEs).
+  try {
+    fs.copyFileSync(path.join(runtime, 'tools', item), target, fs.constants.COPYFILE_EXCL);
+    fs.chmodSync(target, 0o700);
+  } catch (error) { if (error.code !== 'EEXIST') throw error; }
 }
 
 process.env.PI_CODING_AGENT_DIR = agent;
@@ -57,6 +61,11 @@ if (args[0] === '--portable-diagnostics') {
     shell: settings.shellPath ?? '/bin/bash', fullPermissions: true }, null, 2));
 } else {
   const cli = path.join(runtime, 'pi', 'dist', 'bundle', 'cli.js');
-  process.argv = [process.execPath, cli, ...args];
-  await import(cli);
+  // Execute the upstream CLI as Node's own entrypoint, preserving its loader
+  // and command-line behavior rather than importing it into our bootstrap.
+  const child = spawn(process.execPath, [cli, ...args], { stdio: 'inherit', cwd: process.cwd() });
+  process.on('SIGINT', () => {}); // The console also delivers it to the real Pi.
+  process.on('SIGTERM', () => child.kill('SIGTERM'));
+  child.on('error', () => { console.error('Cannot start the bundled Pi CLI.'); process.exitCode = 1; });
+  child.on('exit', (code, signal) => { process.exitCode = code ?? (signal === 'SIGINT' ? 130 : 1); });
 }

@@ -21,6 +21,7 @@ def run(args, timeout=180):
     return result
 
 
+print('Checking Linux cold startup and original CLI...', flush=True)
 started = time.monotonic()
 info = json.loads(run(['--portable-diagnostics']).stdout)
 assert info['platform'] == 'linux' and info['arch'] == 'x64'
@@ -37,14 +38,15 @@ assert 'solo-auto' in run(['--list-models']).stdout
 assert '--append-system-prompt' in run(['--help']).stdout
 runtime = Path(info['runtime'])
 tools_env = dict(env, PATH=str(runtime / 'node/bin') + ':' + str(WORK / '.pi-portable/agent/bin') + ':/usr/bin:/bin')
-tools = subprocess.run(['/bin/bash', '-c', 'node --version; npm --version; rg --version; fd --version'],
+tools = subprocess.run(['/bin/bash', '-c', 'set -e; node --version; npm --version; rg --version; fd --version'],
                        cwd=WORK, env=tools_env, capture_output=True, text=True, timeout=60)
 assert tools.returncode == 0 and 'v24.22.2' in tools.stdout
+print('Checking real SoloAPI reply and all four original tools...', flush=True)
 prompt = ("Run this portable-agent acceptance test in the current working directory only. "
           "Do not inspect configuration, hidden files, credentials or git. "
           "Use the write tool to create portable-acceptance.txt with exactly FIRST_VALUE and a newline. "
           "Use read to check it. Use edit to replace FIRST_VALUE with SECOND_VALUE. "
-          "Use bash to execute: printf 'PORTABLE_SHELL_OK\\n'; cat portable-acceptance.txt . "
+          "Use bash to execute exactly: printf 'PORTABLE_SHELL_OK\\n'; cat portable-acceptance.txt\n"
           "Then reply with PORTABLE_TEST_OK. Perform all four tools.")
 reply = run(['--no-session', '--mode', 'json', '-p', '--tools', 'read,write,edit,bash', prompt], timeout=300)
 assert (WORK / 'portable-acceptance.txt').read_text().strip() == 'SECOND_VALUE'

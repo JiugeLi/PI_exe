@@ -41,6 +41,8 @@ python scripts/build.py
 python scripts/verify_windows.py
 ```
 
+Linux 验证：将 `scripts/verify_linux.py` 和 Linux 成品放入同一个专用测试目录，执行 `python3 verify_linux.py`。两个验证脚本都会实际调用 SoloAPI 并执行文件和命令工具，会产生少量模型用量；不是模拟测试。脚本输出不含密钥的 JSON 验证结果。
+
 构建程序从本机已安装的 `@earendil-works/pi-coding-agent` 1.3.0 和 `.pi/agent` 读取 SoloAPI 专用配置；只复制该 provider，不复制其他账户或会话。Go 工具链和 Node 从官方源下载，并校验 SHA256。Linux rg/fd 使用对应项目的官方 GitHub 发布文件。工具链和下载缓存在 `.tools/`、`.build/`。
 
 产物位于 `dist/`；`manifest.json` 记录版本、字节数和校验值。构建过程不会向 GitHub 上传产物。源代码仓库：[JiugeLi/PI_exe](https://github.com/JiugeLi/PI_exe)。

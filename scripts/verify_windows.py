@@ -28,6 +28,7 @@ def run(args, timeout=180):
     return result
 
 
+print('Checking cold startup and original CLI...', flush=True)
 started = time.monotonic()
 cold = run(['--portable-diagnostics'])
 info = json.loads(cold.stdout)
@@ -49,16 +50,17 @@ runtime = Path(info['runtime'])
 node = runtime / 'node/node.exe'
 bash = runtime / 'bash/usr/bin/bash.exe'
 tool_env = dict(env, PATH=str(bash.parent) + ';' + str(node.parent) + ';' + env['PATH'])
-shell = subprocess.run([str(bash), '-c', "printf 'SHELL_OK\\n'; node --version; npm --version; rg --version; fd --version"],
+shell = subprocess.run([str(bash), '-c', "set -e; printf 'SHELL_OK\\n'; node --version; npm --version; rg --version; fd --version"],
     cwd=WORK, env=dict(tool_env, PATH=str(WORK / '.pi-portable/agent/bin') + ';' + tool_env['PATH']),
     capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60)
 assert shell.returncode == 0 and 'SHELL_OK' in shell.stdout and 'v24.22.2' in shell.stdout, 'Bundled shell/tools failed'
 
+print('Checking real SoloAPI reply and all four original tools...', flush=True)
 prompt = ("Run this portable-agent acceptance test in the current working directory only. "
           "Do not inspect configuration, hidden files, credentials or git. "
           "Use the write tool to create portable-acceptance.txt with exactly FIRST_VALUE and a newline. "
           "Use read to check it. Use edit to replace FIRST_VALUE with SECOND_VALUE. "
-          "Use bash to execute: printf 'PORTABLE_SHELL_OK\\n'; cat portable-acceptance.txt . "
+          "Use bash to execute exactly: printf 'PORTABLE_SHELL_OK\\n'; cat portable-acceptance.txt\n"
           "Then reply with PORTABLE_TEST_OK. Perform all four tools.")
 reply = run(['--no-session', '--mode', 'json', '-p', '--tools', 'read,write,edit,bash', prompt], timeout=300)
 assert (WORK / 'portable-acceptance.txt').read_text().strip() == 'SECOND_VALUE'

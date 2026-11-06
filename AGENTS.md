@@ -8,3 +8,5 @@
 - Build artifacts contain a personal SoloAPI credential. Keep `dist/`, `.build/`, `private/`, `.tools/` and `launcher/payload.zip` ignored and local. Never publish them as GitHub releases or log configuration contents.
 - SoloAPI model discovery requires `extensions/soloapi-models.ts` plus a provider-scoped `models-store.json` cache. Cached entries need `provider: "soloapi"`; do not replace discovery with a hard-coded model list.
 - Verify cold extraction, repeat launch, original version/help, cached model discovery, real model reply and actual file/shell tools. Label Windows and Linux verification separately.
+- Launch the upstream CLI as a separate Node entrypoint to preserve its loader behavior. Windows dynamic imports, if needed elsewhere, require `pathToFileURL`.
+- Seed cached rg/fd binaries with exclusive creation; do not overwrite them each launch, since Windows locks executables used by concurrent sessions.

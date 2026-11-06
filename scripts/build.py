@@ -13,6 +13,7 @@ import subprocess
 import tarfile
 import urllib.request
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / '.build'
@@ -49,8 +50,8 @@ def download(url: str, target: Path, expected: str | None = None) -> Path:
 def checked_node(platform: str) -> Path:
     base = f'https://nodejs.org/dist/{NODE_VERSION}/'
     name = f'node-{NODE_VERSION}-' + ('win-x64.zip' if platform == 'windows' else 'linux-x64.tar.xz')
-    with urllib.request.urlopen(base + 'SHASUMS256.txt', timeout=60) as response:
-        sums = dict(line.split()[::-1] for line in response.read().decode().splitlines())
+    checksum_file = download(base + 'SHASUMS256.txt', BUILD / 'downloads' / (NODE_VERSION + '-SHASUMS256.txt'))
+    sums = dict(line.split()[::-1] for line in checksum_file.read_text().splitlines())
     return download(base + name, BUILD / 'downloads' / name, sums[name])
 
 
@@ -189,19 +190,28 @@ def linux_tools(bundle: zipfile.ZipFile) -> None:
                     write_entry(bundle, f'licenses/{binary}/' + Path(item.name).name, archive.extractfile(item).read())
 
 
-def payload(platform: str, personal: dict[str, bytes]) -> Path:
-    target = BUILD / ('payload-' + platform + '.zip')
-    archive = checked_node(platform)
-    print('Packing original Pi + runtime:', platform, flush=True)
+def base_payload(personal: dict[str, bytes]) -> Path:
+    target = BUILD / 'base-pi.zip'
+    print('Packing original Pi dependencies once...', flush=True)
+    files = [p for p in sorted(PI.rglob('*')) if p.is_file()]
+    def load(file):
+        return file.relative_to(PI).as_posix(), file.read_bytes(), file.suffix in ('.node', '.sh')
     with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
-        for file in sorted(PI.rglob('*')):
-            if file.is_file():
-                relative = file.relative_to(PI).as_posix()
-                # Windows-installed pi-tui already includes all Linux native modules.
-                write_entry(bundle, 'pi/' + relative, file.read_bytes(), file.suffix in ('.node', '.sh'))
+        with ThreadPoolExecutor(max_workers=16) as readers:
+            for relative, data, executable in readers.map(load, files):
+                write_entry(bundle, 'pi/' + relative, data, executable)
         write_entry(bundle, 'bootstrap.mjs', (ROOT / 'runtime/bootstrap.mjs').read_bytes())
         for name, data in personal.items():
             write_entry(bundle, 'provision/' + name, data)
+    return target
+
+
+def payload(platform: str, base: Path) -> Path:
+    target = BUILD / ('payload-' + platform + '.zip')
+    archive = checked_node(platform)
+    print('Packing original Pi + runtime:', platform, flush=True)
+    shutil.copyfile(base, target)
+    with zipfile.ZipFile(target, 'a', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
         node_entries(bundle, archive, platform)
         if platform == 'windows':
             for file in bash_files():
@@ -224,10 +234,11 @@ def main() -> None:
     if pi_version != '1.3.0':
         raise RuntimeError('Revalidate the runtime bootstrap before changing the Pi version.')
     manifest = {'pi': pi_version, 'node': NODE_VERSION, 'go': GO_VERSION, 'artifacts': []}
+    base = base_payload(personal)
     embedded = ROOT / 'launcher/payload.zip'
     try:
         for platform in ('windows', 'linux'):
-            source = payload(platform, personal)
+            source = payload(platform, base)
             shutil.copyfile(source, embedded)
             filename = 'Pi-SoloAPI-Windows-x64.exe' if platform == 'windows' else 'pi-soloapi-linux-x64'
             output = DIST / filename
