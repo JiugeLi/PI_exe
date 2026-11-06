@@ -31,7 +31,7 @@ test('rotation replaces stale auth and uses environment references for keys and 
   const generated = fs.readFileSync(path.join(dir, 'models.json'), 'utf8');
   assert(!generated.includes('test-credential-A') && !generated.includes('test-credential-B'));
   assert(!generated.includes('new-test-header'));
-  assert.equal(JSON.parse(generated).providers.solomux.apiKey, undefined);
+  assert.equal(JSON.parse(generated).providers.solomux.apiKey, '$PI_PORTABLE_API_KEY');
   const auth = JSON.parse(fs.readFileSync(path.join(dir, 'auth.json')));
   assert.equal(auth.soloapi, undefined);
   assert.equal(auth.other.key, 'other-test-key');

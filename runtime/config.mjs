@@ -37,6 +37,7 @@ export function applyConfig(config, agent, env = process.env) {
     headers[name] = '${' + variable + '}';
   }
   const provider = { baseUrl: config.baseUrl, api: config.api,
+    ...(config.apiKey ? { apiKey: '$PI_PORTABLE_API_KEY' } : env.SOLOMUX_API_KEY ? { apiKey: '$SOLOMUX_API_KEY' } : {}),
     ...(config.compat ? { compat: config.compat } : {}), ...(Object.keys(headers).length ? { headers } : {}) };
   let previous;
   try { const providers = JSON.parse(fs.readFileSync(path.join(agent, 'models.json'), 'utf8')).providers; previous = providers?.solomux ?? providers?.soloapi; } catch {}
