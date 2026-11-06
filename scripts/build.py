@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import argparse
 import json
 import os
 from pathlib import Path
@@ -125,7 +126,7 @@ def profile() -> dict[str, bytes]:
         'models-store.json': (ROOT / 'runtime/models-store.json').read_bytes(),
         'settings.json': b'{}\n',
         'auth.json': b'{}\n',
-        'extensions/soloapi-models.ts': (ROOT / 'runtime/extensions/soloapi-models.ts').read_bytes(),
+        'extensions/solomux.ts': (ROOT / 'runtime/extensions/solomux.ts').read_bytes(),
     }
 
 
@@ -190,6 +191,10 @@ def base_payload(personal: dict[str, bytes]) -> Path:
                 write_entry(bundle, 'pi/' + relative, data, executable)
         write_entry(bundle, 'bootstrap.mjs', (ROOT / 'runtime/bootstrap.mjs').read_bytes())
         write_entry(bundle, 'config.mjs', (ROOT / 'runtime/config.mjs').read_bytes())
+        write_entry(bundle, 'licenses/Pi-LICENSE.txt', (ROOT / 'third_party/Pi-LICENSE.txt').read_bytes())
+        write_entry(bundle, 'defaults/config.json', (ROOT / 'config/pi.config.example.json').read_bytes())
+        for name in ('README.zh-CN.md', 'README.en.md'):
+            write_entry(bundle, 'defaults/' + name, (ROOT / name).read_bytes())
         for name, data in personal.items():
             write_entry(bundle, 'provision/' + name, data)
     return target
@@ -215,13 +220,14 @@ def payload(platform: str, base: Path) -> Path:
 
 
 def distribution(output: Path, platform: str) -> Path:
-    folder = 'Pi-SoloAPI-' + ('Windows-x64' if platform == 'windows' else 'Linux-x64')
+    folder = 'Pi-Portable-' + ('Windows-x64' if platform == 'windows' else 'Linux-x64')
     target = DIST / (folder + '.zip')
     example = (ROOT / 'config/pi.config.example.json').read_bytes()
     if json.loads(example)['apiKey'] != '':
         raise RuntimeError('Refusing to publish a configuration template containing a key.')
-    files = {output.name: output.read_bytes(), 'pi.config.json': example,
-             'README.md': (ROOT / 'README.md').read_bytes()}
+    files = {output.name: output.read_bytes(), 'config.json': example,
+             'README.zh-CN.md': (ROOT / 'README.zh-CN.md').read_bytes(),
+             'README.en.md': (ROOT / 'README.en.md').read_bytes()}
     checksums = ''.join(digest(data) + '  ' + name + '\n' for name, data in files.items()).encode()
     with zipfile.ZipFile(target, 'w') as bundle:
         for name, data in {**files, 'SHA256SUMS.txt': checksums}.items():
@@ -230,34 +236,62 @@ def distribution(output: Path, platform: str) -> Path:
 
 
 def main() -> None:
+    global DIST
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--launcher-only', action='store_true', help='Reuse verified unchanged runtime payloads')
+    parser.add_argument('--output-dir', type=Path, help='Build into a staging directory')
+    parser.add_argument('--zip', action='store_true', help='Also produce optional ZIP distributions')
+    args = parser.parse_args()
+    previous_manifest = ROOT / 'dist/manifest.json'
+    if args.output_dir:
+        DIST = args.output_dir.resolve()
     for folder in (BUILD, TOOLS, DIST):
-        folder.mkdir(exist_ok=True)
+        folder.mkdir(parents=True, exist_ok=True)
     go = ensure_go()
     public = profile()
     pi_version = json.loads((PI / 'package.json').read_text())['version']
     if pi_version != '1.3.0':
         raise RuntimeError('Revalidate the runtime bootstrap before changing the Pi version.')
     manifest = {'pi': pi_version, 'node': NODE_VERSION, 'go': GO_VERSION,
-                'credentialFree': True, 'configuration': 'pi.config.json beside executable', 'artifacts': []}
-    base = base_payload(public)
+                'credentialFree': True, 'configuration': 'auto-generated config.json beside executable', 'artifacts': []}
+    base = None if args.launcher_only else base_payload(public)
+    previous = json.loads(previous_manifest.read_text()) if args.launcher_only else None
     embedded = ROOT / 'launcher/payload.zip'
     try:
         for platform in ('windows', 'linux'):
-            source = payload(platform, base)
+            if args.launcher_only:
+                source = BUILD / ('payload-' + platform + '.zip')
+                prior = next(a for a in previous['artifacts'] if a['file'] == ('pi-windows-x64.exe' if platform == 'windows' else 'pi-linux-x64'))
+                if not previous.get('credentialFree') or digest(source.read_bytes()) != prior['payloadSha256']:
+                    raise RuntimeError('Cannot reuse an unverified runtime payload.')
+                with zipfile.ZipFile(source) as existing:
+                    inputs = {'bootstrap.mjs': (ROOT / 'runtime/bootstrap.mjs').read_bytes(),
+                              'config.mjs': (ROOT / 'runtime/config.mjs').read_bytes(),
+                              'licenses/Pi-LICENSE.txt': (ROOT / 'third_party/Pi-LICENSE.txt').read_bytes(),
+                              'defaults/config.json': (ROOT / 'config/pi.config.example.json').read_bytes(),
+                              **{'defaults/' + name: (ROOT / name).read_bytes() for name in ('README.zh-CN.md', 'README.en.md')},
+                              **{'provision/' + name: data for name, data in public.items()}}
+                    if any(existing.read(name) != data for name, data in inputs.items()):
+                        raise RuntimeError('Runtime sources changed; run a full build.')
+            else:
+                source = payload(platform, base)
             shutil.copyfile(source, embedded)
-            filename = 'Pi-SoloAPI-Windows-x64.exe' if platform == 'windows' else 'pi-soloapi-linux-x64'
+            filename = 'pi-windows-x64.exe' if platform == 'windows' else 'pi-linux-x64'
             output = DIST / filename
             env = dict(os.environ, GOOS=platform, GOARCH='amd64', CGO_ENABLED='0', GOCACHE=str(TOOLS / 'go-cache'))
             subprocess.run([str(go), 'build', '-trimpath', '-ldflags=-s -w', '-o', str(output), './launcher'], cwd=ROOT, env=env, check=True)
             record = {'file': filename, 'bytes': output.stat().st_size, 'sha256': digest(output.read_bytes()), 'payloadSha256': digest(source.read_bytes())}
             manifest['artifacts'].append(record)
             print(filename, round(record['bytes'] / 1024**2, 2), 'MiB', flush=True)
-            archive = distribution(output, platform)
-            manifest['artifacts'].append({'file': archive.name, 'bytes': archive.stat().st_size,
-                                          'sha256': digest(archive.read_bytes())})
+            if args.zip:
+                archive = distribution(output, platform)
+                manifest['artifacts'].append({'file': archive.name, 'bytes': archive.stat().st_size,
+                                              'sha256': digest(archive.read_bytes())})
     finally:
         embedded.unlink(missing_ok=True)
     (DIST / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    for name in ('README.zh-CN.md', 'README.en.md'):
+        shutil.copyfile(ROOT / name, DIST / name)
 
 
 if __name__ == '__main__':

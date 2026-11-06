@@ -14,6 +14,12 @@ catch (error) { console.error(error.message); process.exit(2); }
 const agent = path.join(state, 'agent');
 const provision = path.join(runtime, 'provision');
 fs.mkdirSync(agent, { recursive: true, mode: 0o700 });
+const oldExtension = path.join(agent, 'extensions', 'soloapi-models.ts');
+if (fs.existsSync(oldExtension)) {
+  const migration = path.join(state, 'migrations');
+  fs.mkdirSync(migration, { recursive: true, mode: 0o700 });
+  fs.renameSync(oldExtension, path.join(migration, `soloapi-models-${Date.now()}.ts`));
+}
 
 function seed(source, target) {
   if (fs.statSync(source).isDirectory()) {
@@ -25,6 +31,14 @@ function seed(source, target) {
   }
 }
 seed(provision, agent);
+const managedExtension = path.join(agent, 'extensions', 'solomux.ts');
+const extensionSource = fs.readFileSync(path.join(provision, 'extensions', 'solomux.ts'));
+if (!fs.readFileSync(managedExtension).equals(extensionSource)) {
+  const migration = path.join(state, 'migrations');
+  fs.mkdirSync(migration, { recursive: true, mode: 0o700 });
+  fs.copyFileSync(managedExtension, path.join(migration, `solomux-${Date.now()}.ts`));
+  fs.writeFileSync(managedExtension, extensionSource, { mode: 0o600 });
+}
 applyConfig(config, agent);
 
 const localBin = path.join(agent, 'bin');
@@ -54,7 +68,7 @@ process.env[pathKey] = [path.join(runtime, 'node'), path.join(runtime, 'node', '
 
 const settingsFile = path.join(agent, 'settings.json');
 const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
-settings.defaultProvider = 'soloapi';
+settings.defaultProvider = 'solomux';
 settings.defaultModel = config.defaultModel;
 settings.defaultThinkingLevel = config.thinkingLevel;
 if (process.platform === 'win32') settings.shellPath = path.join(runtime, 'bash', 'usr', 'bin', 'bash.exe');
@@ -70,11 +84,6 @@ if (args[0] === '--portable-diagnostics') {
     configFile, apiKeyConfigured: Boolean(config.apiKey),
     shell: settings.shellPath ?? '/bin/bash', fullPermissions: true }, null, 2));
 } else {
-  const informational = args.some(arg => ['--version', '--help', '-h', '--list-models'].includes(arg));
-  if (!config.apiKey && !informational) {
-    console.error('Fill apiKey in pi.config.json beside the executable (or set SOLOAPI_API_KEY), then restart.');
-    process.exit(2);
-  }
   const cli = path.join(runtime, 'pi', 'dist', 'bundle', 'cli.js');
   // Execute the upstream CLI as Node's own entrypoint, preserving its loader
   // and command-line behavior rather than importing it into our bootstrap.

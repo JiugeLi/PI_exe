@@ -10,4 +10,5 @@ __pycache__/
 private/
 payload.zip
 pi.config.json
+config.json
 !config/pi.config.example.json

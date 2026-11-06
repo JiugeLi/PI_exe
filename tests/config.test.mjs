@@ -31,20 +31,37 @@ test('rotation replaces stale auth and uses environment references for keys and 
   const generated = fs.readFileSync(path.join(dir, 'models.json'), 'utf8');
   assert(!generated.includes('test-credential-A') && !generated.includes('test-credential-B'));
   assert(!generated.includes('new-test-header'));
-  assert.equal(JSON.parse(generated).providers.soloapi.apiKey, '$PI_PORTABLE_API_KEY');
+  assert.equal(JSON.parse(generated).providers.solomux.apiKey, undefined);
   const auth = JSON.parse(fs.readFileSync(path.join(dir, 'auth.json')));
   assert.equal(auth.soloapi, undefined);
   assert.equal(auth.other.key, 'other-test-key');
-  assert(JSON.parse(fs.readFileSync(path.join(dir, 'models-store.json'))).soloapi.models.some(m => m.id === 'model-B'));
+  assert(JSON.parse(fs.readFileSync(path.join(dir, 'models-store.json'))).solomux.models.some(m => m.id === 'model-B'));
 });
 
 test('changing endpoint discards old catalog capabilities', t => {
   const dir = fixture(t);
   applyConfig(base, dir, {});
   applyConfig({ ...base, baseUrl: 'http://localhost:12345/v1', defaultModel: 'different-model', api: 'openai-completions' }, dir, {});
-  const models = JSON.parse(fs.readFileSync(path.join(dir, 'models-store.json'))).soloapi.models;
+  const models = JSON.parse(fs.readFileSync(path.join(dir, 'models-store.json'))).solomux.models;
   assert.deepEqual(models.map(m => m.id), ['different-model']);
   assert.equal(models[0].api, 'openai-completions');
+});
+
+test('native login survives an empty config key, while an explicit key overrides it', t => {
+  const dir = fixture(t);
+  fs.writeFileSync(path.join(dir, 'auth.json'), JSON.stringify({ solomux: {type: 'api_key', key: 'native-test-key'} }));
+  applyConfig({...base, apiKey: ''}, dir, {});
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'auth.json'))).solomux.key, 'native-test-key');
+  applyConfig({...base, apiKey: 'explicit-test-key'}, dir, {});
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'auth.json'))).solomux, undefined);
+});
+
+test('a key-only file uses built-in SoloMux defaults', t => {
+  const file = path.join(fixture(t), 'config.json');
+  fs.writeFileSync(file, JSON.stringify({apiKey:'test-config-key'}));
+  const config = loadConfig(file, {});
+  assert.equal(config.baseUrl, 'https://solomux.com/v1');
+  assert.equal(config.defaultModel, 'solo-auto');
 });
 
 test('invalid JSON errors never echo a credential-bearing input fragment', t => {
