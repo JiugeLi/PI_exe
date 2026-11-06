@@ -77,11 +77,13 @@ fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + '\n', { mode:
 
 const args = process.argv.slice(2);
 if (args[0] === '--portable-diagnostics') {
+  let storedKey = false;
+  try { storedKey = Boolean(JSON.parse(fs.readFileSync(path.join(agent, 'auth.json'), 'utf8')).solomux?.key); } catch {}
   console.log(JSON.stringify({ platform: process.platform, arch: process.arch,
     cwd: process.cwd(), agentDir: agent, runtime, node: process.version,
     pi: JSON.parse(fs.readFileSync(path.join(runtime, 'pi', 'package.json'), 'utf8')).version,
     provider: settings.defaultProvider, model: settings.defaultModel,
-    configFile, apiKeyConfigured: Boolean(config.apiKey),
+    configFile, apiKeyConfigured: Boolean(config.apiKey || process.env.SOLOMUX_API_KEY || storedKey),
     shell: settings.shellPath ?? '/bin/bash', fullPermissions: true }, null, 2));
 } else {
   const cli = path.join(runtime, 'pi', 'dist', 'bundle', 'cli.js');

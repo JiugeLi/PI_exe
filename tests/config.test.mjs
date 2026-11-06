@@ -13,10 +13,10 @@ function fixture(t) {
   return dir;
 }
 
-test('accepts UTF-8 BOM and environment key fallback without mutating the file', t => {
+test('accepts UTF-8 BOM without treating ambient keys as explicit config overrides', t => {
   const file = path.join(fixture(t), 'pi.config.json');
   fs.writeFileSync(file, '\uFEFF' + JSON.stringify({ ...base, apiKey: '' }));
-  assert.equal(loadConfig(file, { SOLOAPI_API_KEY: 'test-env-credential' }).apiKey, 'test-env-credential');
+  assert.equal(loadConfig(file, { SOLOAPI_API_KEY: 'test-env-credential', SOLOMUX_API_KEY:'test-other-env-credential' }).apiKey, '');
   assert.equal(JSON.parse(fs.readFileSync(file, 'utf8').slice(1)).apiKey, '');
 });
 

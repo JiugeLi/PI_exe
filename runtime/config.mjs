@@ -25,7 +25,7 @@ export function loadConfig(filename, env = process.env) {
   }
   if (config.headers && Object.values(config.headers).some(v => typeof v !== 'string')) invalid('header values must be strings.');
   return { ...config, baseUrl: config.baseUrl.replace(/\/+$/, ''), defaultModel: config.defaultModel.trim(),
-    thinkingLevel: thinking, apiKey: config.apiKey.trim() || env.SOLOMUX_API_KEY || env.SOLOAPI_API_KEY || '' };
+    thinkingLevel: thinking, apiKey: config.apiKey.trim() };
 }
 
 export function applyConfig(config, agent, env = process.env) {

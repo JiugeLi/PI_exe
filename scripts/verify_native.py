@@ -64,7 +64,11 @@ if r.returncode:
     raise RuntimeError('Native login probe failed')
 login_report = json.loads(r.stdout.strip().splitlines()[-1])
 assert json.loads(config.read_text())['apiKey'] == ''
-assert json.loads(run(['--portable-diagnostics']).stdout)['provider'] == 'solomux'
+# Ambient variables must not replace the native saved login on restart.
+env['SOLOAPI_API_KEY'] = 'test-unrelated-legacy-ambient-key'
+env['SOLOMUX_API_KEY'] = 'test-ambient-key-must-not-replace-login'
+restarted = json.loads(run(['--portable-diagnostics']).stdout)
+assert restarted['provider'] == 'solomux' and restarted['apiKeyConfigured']
 print('Checking saved login after restart and original file/shell tools...', flush=True)
 prompt = ('Acceptance check. Do not inspect configuration, hidden files, credentials or git. '
           'Use write to create portable-acceptance.txt containing FIRST_VALUE. Use read to check it. '
@@ -80,9 +84,18 @@ for line in reply.stdout.splitlines():
         if e.get('type')=='tool_execution_start': tools.add(e['toolName'])
     except ValueError: pass
 assert {'read','write','edit','bash'} <= tools
+print('Checking key-only config with built-in defaults...', flush=True)
+private = json.loads(args.private_config.read_text(encoding='utf-8-sig'))
+config.write_text(json.dumps({'apiKey': private['apiKey']}))
+try:
+    configured_reply = run(['--no-session','-p','Reply exactly CONFIG_KEY_OK. Do not use tools.'], timeout=90)
+    assert 'CONFIG_KEY_OK' in configured_reply.stdout
+finally:
+    config.write_bytes(original)
 report = { 'platform': args.platform, 'autoConfigAndBilingualReadmes': True,
     'configEditPreserved': True, 'coldProgressSamples': len(samples), 'progressMonotonic': True,
     'jsonStdoutClean': True, 'cachedLaunchQuiet': True, **login_report,
-    'loginSurvivesRestart': True, 'originalToolsExecuted': sorted(tools), 'realModelReply': True }
+    'loginSurvivesRestart': True, 'ambientKeysDoNotReplaceSavedLogin': True,
+    'keyOnlyConfigRealReply': True, 'originalToolsExecuted': sorted(tools), 'realModelReply': True }
 (release / ('acceptance-native-'+args.platform+'.json')).write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report,indent=2))

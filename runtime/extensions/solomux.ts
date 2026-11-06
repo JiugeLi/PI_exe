@@ -18,6 +18,11 @@ export default async function (pi: ExtensionAPI) {
   const { openAICompletionsApi } = await load('api/openai-completions.lazy.js');
   const { anthropicMessagesApi } = await load('api/anthropic-messages.lazy.js');
   const config = JSON.parse(readFileSync(join(agentDir, 'models.json'), 'utf8')).providers.solomux;
+  let configuredKey = '';
+  if (process.env.PI_PORTABLE_CONFIG_FILE) {
+    const portable = JSON.parse(readFileSync(process.env.PI_PORTABLE_CONFIG_FILE, 'utf8').replace(/^\uFEFF/, ''));
+    configuredKey = typeof portable.apiKey === 'string' ? portable.apiKey.trim() : '';
+  }
   const headers = Object.fromEntries(Object.entries(config.headers ?? {}).map(([k, v]) => [k, resolve(String(v))]));
   let pending: { key: string; models: any[] } | undefined;
 
@@ -44,7 +49,12 @@ export default async function (pi: ExtensionAPI) {
 
   // The same native API-key authentication used by providers such as DeepSeek.
   const standardAuth = envApiKeyAuth('SoloMux API key', ['PI_PORTABLE_API_KEY', 'SOLOMUX_API_KEY']);
-  const auth = { ...standardAuth, login: async (interaction: any) => {
+  const auth = { ...standardAuth, resolve: async (input: any) => {
+    if (input.credential?.key) return standardAuth.resolve(input);
+    const portableKey = configuredKey || process.env.PI_PORTABLE_API_KEY || process.env.SOLOMUX_API_KEY;
+    if (portableKey) return { auth: { apiKey: portableKey }, source: 'portable configuration' };
+    return standardAuth.resolve(input);
+  }, login: async (interaction: any) => {
     const credential = await standardAuth.login!(interaction);
     if (!credential.key?.trim()) throw new Error('An API key is required.');
     credential.key = credential.key.trim();
@@ -59,7 +69,7 @@ export default async function (pi: ExtensionAPI) {
     auth: { apiKey: auth }, models: [], api,
     fetchModels: async context => {
       const key = context.credential?.type === 'api_key' ? context.credential.key : undefined;
-      const effective = key ?? process.env.PI_PORTABLE_API_KEY ?? process.env.SOLOMUX_API_KEY;
+      const effective = key || configuredKey || process.env.PI_PORTABLE_API_KEY || process.env.SOLOMUX_API_KEY;
       if (!effective) return context.stored?.models ?? [];
       if (pending?.key === effective) { const models = pending.models; pending = undefined; return models; }
       return discover(effective, context.signal);
