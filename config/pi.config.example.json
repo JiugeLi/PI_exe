@@ -1,0 +1,7 @@
+{
+  "baseUrl": "https://solomux.com/v1",
+  "api": "openai-responses",
+  "apiKey": "",
+  "defaultModel": "solo-auto",
+  "thinkingLevel": "medium"
+}

@@ -9,3 +9,5 @@ __pycache__/
 .env.*
 private/
 payload.zip
+pi.config.json
+!config/pi.config.example.json

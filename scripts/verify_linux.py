@@ -30,6 +30,8 @@ assert Path(info['cwd']) == WORK
 assert Path(info['agentDir']) == WORK / '.pi-portable/agent'
 assert info['pi'] == '1.3.0' and info['node'] == 'v24.22.2'
 assert info['fullPermissions'] is True
+assert info['apiKeyConfigured'] is True
+assert Path(info['configFile']) == Path(env['PI_PORTABLE_CONFIG']).resolve()
 cold_seconds = round(time.monotonic() - started, 2)
 started = time.monotonic()
 assert json.loads(run(['--portable-diagnostics']).stdout)['runtime'] == info['runtime']

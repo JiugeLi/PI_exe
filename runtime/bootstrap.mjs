@@ -2,10 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { loadConfig, applyConfig } from './config.mjs';
 
 const runtime = path.dirname(fileURLToPath(import.meta.url));
 const state = process.env.PI_PORTABLE_STATE;
 if (!state || !path.isAbsolute(state)) throw new Error('Launch through the Pi Portable executable.');
+const configFile = process.env.PI_PORTABLE_CONFIG_FILE;
+let config;
+try { config = loadConfig(configFile); }
+catch (error) { console.error(error.message); process.exit(2); }
 const agent = path.join(state, 'agent');
 const provision = path.join(runtime, 'provision');
 fs.mkdirSync(agent, { recursive: true, mode: 0o700 });
@@ -20,6 +25,7 @@ function seed(source, target) {
   }
 }
 seed(provision, agent);
+applyConfig(config, agent);
 
 const localBin = path.join(agent, 'bin');
 fs.mkdirSync(localBin, { recursive: true, mode: 0o700 });
@@ -48,6 +54,9 @@ process.env[pathKey] = [path.join(runtime, 'node'), path.join(runtime, 'node', '
 
 const settingsFile = path.join(agent, 'settings.json');
 const settings = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+settings.defaultProvider = 'soloapi';
+settings.defaultModel = config.defaultModel;
+settings.defaultThinkingLevel = config.thinkingLevel;
 if (process.platform === 'win32') settings.shellPath = path.join(runtime, 'bash', 'usr', 'bin', 'bash.exe');
 else delete settings.shellPath;
 fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 });
@@ -58,8 +67,14 @@ if (args[0] === '--portable-diagnostics') {
     cwd: process.cwd(), agentDir: agent, runtime, node: process.version,
     pi: JSON.parse(fs.readFileSync(path.join(runtime, 'pi', 'package.json'), 'utf8')).version,
     provider: settings.defaultProvider, model: settings.defaultModel,
+    configFile, apiKeyConfigured: Boolean(config.apiKey),
     shell: settings.shellPath ?? '/bin/bash', fullPermissions: true }, null, 2));
 } else {
+  const informational = args.some(arg => ['--version', '--help', '-h', '--list-models'].includes(arg));
+  if (!config.apiKey && !informational) {
+    console.error('Fill apiKey in pi.config.json beside the executable (or set SOLOAPI_API_KEY), then restart.');
+    process.exit(2);
+  }
   const cli = path.join(runtime, 'pi', 'dist', 'bundle', 'cli.js');
   // Execute the upstream CLI as Node's own entrypoint, preserving its loader
   // and command-line behavior rather than importing it into our bootstrap.

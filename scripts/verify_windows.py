@@ -5,17 +5,21 @@ import os
 from pathlib import Path
 import subprocess
 import time
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-EXE = ROOT / 'dist/Pi-SoloAPI-Windows-x64.exe'
-WORK = ROOT / '.build/acceptance/Windows 中文 project'
+RELEASE = ROOT / '.build/acceptance/ZIP release'
+with zipfile.ZipFile(ROOT / 'dist/Pi-SoloAPI-Windows-x64.zip') as archive:
+    archive.extractall(RELEASE)
+EXE = RELEASE / 'Pi-SoloAPI-Windows-x64/Pi-SoloAPI-Windows-x64.exe'
+WORK = ROOT / '.build/acceptance/ZIP 工作 project'
 WORK.mkdir(parents=True, exist_ok=True)
 ORIGINAL = Path.home() / '.pi/agent'
 BEFORE = {name: hashlib.sha256((ORIGINAL / name).read_bytes()).hexdigest()
           for name in ('models.json', 'settings.json', 'auth.json')}
 env = dict(os.environ)
 env['PATH'] = os.path.join(os.environ['SystemRoot'], 'System32') + ';' + os.environ['SystemRoot']
-for key in ('PI_CODING_AGENT_DIR', 'PI_PACKAGE_DIR', 'NODE_PATH', 'NODE_OPTIONS'):
+for key in ('PI_CODING_AGENT_DIR', 'PI_PACKAGE_DIR', 'NODE_PATH', 'NODE_OPTIONS', 'PI_PORTABLE_CONFIG', 'SOLOAPI_API_KEY'):
     env.pop(key, None)
 
 
@@ -38,6 +42,25 @@ assert Path(info['agentDir']) == WORK / '.pi-portable/agent'
 assert info['provider'] == 'soloapi' and info['model'] == 'solo-auto'
 assert info['pi'] == '1.3.0' and info['fullPermissions'] is True
 assert info['node'] == 'v24.22.2'
+assert Path(info['configFile']) == EXE.parent / 'pi.config.json'
+assert info['apiKeyConfigured'] is False
+assert json.loads((EXE.parent / 'pi.config.json').read_text())['apiKey'] == ''
+missing = subprocess.run([str(EXE), '--no-session', '-p', 'do not call a model'], cwd=WORK, env=env,
+                         stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
+assert missing.returncode == 2 and b'Fill apiKey' in missing.stderr
+# Verify an actual edit to the sibling file; no credential is needed here.
+public_config = EXE.parent / 'pi.config.json'
+original_config = public_config.read_bytes()
+edited = json.loads(original_config)
+edited.update(defaultModel='configuration-edit-check', apiKey='test-config-marker')
+public_config.write_text(json.dumps(edited))
+changed = json.loads(run(['--portable-diagnostics']).stdout)
+assert changed['model'] == 'configuration-edit-check' and changed['apiKeyConfigured']
+assert 'test-config-marker' not in (WORK / '.pi-portable/agent/models.json').read_text()
+public_config.write_bytes(original_config)
+env['PI_PORTABLE_CONFIG'] = str(ROOT / 'private/pi.config.json')
+configured = json.loads(run(['--portable-diagnostics']).stdout)
+assert configured['model'] == 'solo-auto' and configured['apiKeyConfigured']
 first_seconds = round(time.monotonic() - started, 2)
 started = time.monotonic()
 warm = run(['--portable-diagnostics'])
@@ -81,6 +104,8 @@ report = {'platform': 'windows-x64', 'pi': info['pi'], 'node': info['node'],
           'runtimeExtractedThisRun': Path(info['runtime']).resolve() not in known_runtimes,
           'globalNodePiGitRemovedFromPath': True, 'unicodeAndSpacesInCwd': True,
           'originalProfileUnchanged': True, 'realSoloApiReply': True,
+          'zipExtractedAndVerified': True, 'blankKeyReleaseConfig': True,
+          'siblingConfigEditApplied': True, 'privateConfigOverrideVerified': True,
           'originalToolsExecuted': sorted(set(events)), 'bundledBashNodeNpmRgFd': True}
 (ROOT / 'dist/acceptance-windows.json').write_text(json.dumps(report, indent=2) + '\n')
 print(json.dumps(report, indent=2))

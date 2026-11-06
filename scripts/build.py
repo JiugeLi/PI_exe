@@ -1,8 +1,7 @@
-"""Build personal, offline-runtime Pi executables. Never prints credentials."""
+"""Build credential-free Pi executables and ZIP distributions."""
 from __future__ import annotations
 
 import hashlib
-import io
 import json
 import os
 from pathlib import Path
@@ -121,23 +120,12 @@ def bash_files() -> list[Path]:
 
 
 def profile() -> dict[str, bytes]:
-    source = json.loads((PROFILE / 'models.json').read_text(encoding='utf-8-sig'))
-    provider = source['providers']['soloapi']
-    key = provider.get('apiKey', '')
-    if not key or key.startswith(('!', '$')):
-        raise RuntimeError('Personal build requires a resolved SoloAPI key in the local profile.')
-    # Copy only the intended gateway, never unrelated auth, sessions or skills.
-    store = json.loads((PROFILE / 'models-store.json').read_text(encoding='utf-8-sig'))
-    solo = store['soloapi']
-    if not any(m['id'] == 'solo-auto' and m.get('provider') == 'soloapi' for m in solo['models']):
-        raise RuntimeError('Missing provider-qualified default model in cached catalog.')
-    encode = lambda obj: (json.dumps(obj, ensure_ascii=False, indent=2) + '\n').encode()
+    # All inputs are public repository files. Never import local credentials.
     return {
-        'models.json': encode({'providers': {'soloapi': provider}}),
-        'models-store.json': encode({'soloapi': solo}),
-        'settings.json': encode({'defaultProvider': 'soloapi', 'defaultModel': 'solo-auto', 'defaultThinkingLevel': 'medium'}),
+        'models-store.json': (ROOT / 'runtime/models-store.json').read_bytes(),
+        'settings.json': b'{}\n',
         'auth.json': b'{}\n',
-        'extensions/soloapi-models.ts': (PROFILE / 'extensions/soloapi-models.ts').read_bytes(),
+        'extensions/soloapi-models.ts': (ROOT / 'runtime/extensions/soloapi-models.ts').read_bytes(),
     }
 
 
@@ -201,6 +189,7 @@ def base_payload(personal: dict[str, bytes]) -> Path:
             for relative, data, executable in readers.map(load, files):
                 write_entry(bundle, 'pi/' + relative, data, executable)
         write_entry(bundle, 'bootstrap.mjs', (ROOT / 'runtime/bootstrap.mjs').read_bytes())
+        write_entry(bundle, 'config.mjs', (ROOT / 'runtime/config.mjs').read_bytes())
         for name, data in personal.items():
             write_entry(bundle, 'provision/' + name, data)
     return target
@@ -225,16 +214,32 @@ def payload(platform: str, base: Path) -> Path:
     return target
 
 
+def distribution(output: Path, platform: str) -> Path:
+    folder = 'Pi-SoloAPI-' + ('Windows-x64' if platform == 'windows' else 'Linux-x64')
+    target = DIST / (folder + '.zip')
+    example = (ROOT / 'config/pi.config.example.json').read_bytes()
+    if json.loads(example)['apiKey'] != '':
+        raise RuntimeError('Refusing to publish a configuration template containing a key.')
+    files = {output.name: output.read_bytes(), 'pi.config.json': example,
+             'README.md': (ROOT / 'README.md').read_bytes()}
+    checksums = ''.join(digest(data) + '  ' + name + '\n' for name, data in files.items()).encode()
+    with zipfile.ZipFile(target, 'w') as bundle:
+        for name, data in {**files, 'SHA256SUMS.txt': checksums}.items():
+            write_entry(bundle, folder + '/' + name, data, name == output.name)
+    return target
+
+
 def main() -> None:
     for folder in (BUILD, TOOLS, DIST):
         folder.mkdir(exist_ok=True)
     go = ensure_go()
-    personal = profile()
+    public = profile()
     pi_version = json.loads((PI / 'package.json').read_text())['version']
     if pi_version != '1.3.0':
         raise RuntimeError('Revalidate the runtime bootstrap before changing the Pi version.')
-    manifest = {'pi': pi_version, 'node': NODE_VERSION, 'go': GO_VERSION, 'artifacts': []}
-    base = base_payload(personal)
+    manifest = {'pi': pi_version, 'node': NODE_VERSION, 'go': GO_VERSION,
+                'credentialFree': True, 'configuration': 'pi.config.json beside executable', 'artifacts': []}
+    base = base_payload(public)
     embedded = ROOT / 'launcher/payload.zip'
     try:
         for platform in ('windows', 'linux'):
@@ -247,6 +252,9 @@ def main() -> None:
             record = {'file': filename, 'bytes': output.stat().st_size, 'sha256': digest(output.read_bytes()), 'payloadSha256': digest(source.read_bytes())}
             manifest['artifacts'].append(record)
             print(filename, round(record['bytes'] / 1024**2, 2), 'MiB', flush=True)
+            archive = distribution(output, platform)
+            manifest['artifacts'].append({'file': archive.name, 'bytes': archive.stat().st_size,
+                                          'sha256': digest(archive.read_bytes())})
     finally:
         embedded.unlink(missing_ok=True)
     (DIST / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

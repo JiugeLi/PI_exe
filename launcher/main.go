@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-// payload.zip is generated locally, contains personal credentials, and must never be committed.
+// payload.zip is generated from public runtime files and must never contain credentials.
 //
 //go:embed payload.zip
 var payload []byte
@@ -33,6 +33,18 @@ func main() {
 
 func run() (int, error) {
 	cwd, err := os.Getwd()
+	if err != nil {
+		return 1, err
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return 1, err
+	}
+	configFile := os.Getenv("PI_PORTABLE_CONFIG")
+	if configFile == "" {
+		configFile = filepath.Join(filepath.Dir(executable), "pi.config.json")
+	}
+	configFile, err = filepath.Abs(configFile)
 	if err != nil {
 		return 1, err
 	}
@@ -62,7 +74,7 @@ func run() (int, error) {
 	interrupts := make(chan os.Signal, 2)
 	signal.Notify(interrupts, os.Interrupt)
 	defer signal.Stop(interrupts)
-	cmd.Env = append(os.Environ(), "PI_PORTABLE_STATE="+state, "PI_PORTABLE_RUNTIME="+runtimeDir)
+	cmd.Env = append(os.Environ(), "PI_PORTABLE_STATE="+state, "PI_PORTABLE_RUNTIME="+runtimeDir, "PI_PORTABLE_CONFIG_FILE="+configFile)
 	err = cmd.Run()
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {

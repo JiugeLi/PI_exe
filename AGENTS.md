@@ -5,7 +5,10 @@
 - Windows and Linux x86_64 are separate builds. Linux Node requires glibc; do not claim Alpine/musl compatibility.
 - Use the launch working directory, never change to the executable directory. Pi data and extracted runtime live in `<cwd>/.pi-portable`; use `PI_CODING_AGENT_DIR` to avoid changing `~/.pi/agent`.
 - Preserve original filesystem and command permissions, server HOME, SSH, Git configuration and inherited PATH. Working directory is not a sandbox.
-- Build artifacts contain a personal SoloAPI credential. Keep `dist/`, `.build/`, `private/`, `.tools/` and `launcher/payload.zip` ignored and local. Never publish them as GitHub releases or log configuration contents.
+- Public executables and release ZIPs must contain no credentials. Never import a home-directory provider/auth file during builds. Keep artifacts/cache ignored; private configs and legacy credential-bearing binaries belong under ignored `private/` and must never be published.
+- External `pi.config.json` beside the executable is authoritative and reread each launch; `PI_PORTABLE_CONFIG` overrides its location. Do not resolve it from the working directory. Pass keys/secret headers through environment references, never compile them into payloads or log JSON parse snippets.
+- ZIP distributions include the executable, blank-key config, README and SHA256SUMS; verify ZIP extraction, external key/model changes and credential-free payloads before delivery.
+- Release checks: `node --test tests/config.test.mjs`, `python scripts/audit_release.py`, Windows ZIP integration via `scripts/verify_windows.py`, Linux ZIP integration via `scripts/verify_linux_zip.py`. The latter needs a private test config outside the ZIP.
 - SoloAPI model discovery requires `extensions/soloapi-models.ts` plus a provider-scoped `models-store.json` cache. Cached entries need `provider: "soloapi"`; do not replace discovery with a hard-coded model list.
 - Verify cold extraction, repeat launch, original version/help, cached model discovery, real model reply and actual file/shell tools. Label Windows and Linux verification separately.
 - Launch the upstream CLI as a separate Node entrypoint to preserve its loader behavior. Windows dynamic imports, if needed elsewhere, require `pathToFileURL`.

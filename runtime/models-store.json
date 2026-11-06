@@ -1,0 +1,235 @@
+{
+  "soloapi": {
+    "models": [
+      {
+        "id": "claude-opus-5-5",
+        "name": "claude-opus-5-5",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "claude-sonnet-5-5",
+        "name": "claude-sonnet-5-5",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "deepseek-flash",
+        "name": "deepseek-flash",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "glm-5.3-flash",
+        "name": "glm-5.3-flash",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "gpt-6-astra",
+        "name": "gpt-6-astra",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "gpt-6.1-sol",
+        "name": "gpt-6.1-sol",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "gpt-6.1-terra",
+        "name": "gpt-6.1-terra",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "qwen3.8-flash",
+        "name": "qwen3.8-flash",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "solo-auto",
+        "name": "solo-auto",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "solomux",
+        "name": "solomux",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "solomux-ppt",
+        "name": "solomux-ppt",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      },
+      {
+        "id": "solomux-ppt2",
+        "name": "solomux-ppt2",
+        "api": "openai-responses",
+        "reasoning": true,
+        "input": [
+          "text",
+          "image"
+        ],
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "contextWindow": 272000,
+        "maxTokens": 16384,
+        "provider": "soloapi"
+      }
+    ],
+    "checkedAt": 0
+  }
+}
